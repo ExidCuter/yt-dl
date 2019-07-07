@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Document</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<body>
+    <div>
+        <nav class="nav-wrapper">
+            <div style="margin-left:10px;">
+                <a class="brand-logo">Simple YouTube Downloader</a>
+            </div>
+        </nav>
+    </div>
+    <div>
+        <br>
+        <div>
+            <div class="row" style="margin-bottom: 0;">
+                <div class="col s9">
+                    <form>
+                        <div class="row" >
+                            <div style="margin-left:10px; margin-bottom: 0;" class="input-field">
+                                <input class="validate" type="text" placeholder="URL, Title or ID" id="query">
+                                <label for="query">Query</label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="input-field col s3"  style="margin-bottom: 0;">
+                    <select id="format">
+                        <option value="1" selected>MP4</option>
+                        <option value="2">MP3</option>
+                        <option value="3">WEBEM</option>
+                    </select>
+                    <label>Select Format</label>
+                </div>
+            </div>
+        </div>
+        <div id="results">
+
+        </div>
+        <script>if (typeof module === 'object') { window.module = module; module = undefined; }</script>
+        <script src="../node_modules/jquery/dist/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+        <script>if (window.module) module = window.module;</script>
+
+        <script>
+            const electron = require('electron');
+            const { ipcRenderer } = electron;
+            const doc = document;
+
+            $(document).ready(function () {
+                $('select').formSelect();
+            });
+
+            const results = document.querySelector('#results');
+
+            document.querySelector('form').addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                results.innerHTML = '<div style="margin-left:10px;"><h4>Results:</h3></div>';
+
+                const query = document.querySelector('#query').value;
+
+                ipcRenderer.send('search:query', query);
+            });
+
+
+            ipcRenderer.on('result:video', (e, res) => {
+                res.forEach(elem => {
+                    if (elem.kind === 'youtube#video') {
+                        results.appendChild(addVideoToResults(elem));
+                    }
+                });
+            });
+
+            ipcRenderer.on('download:start', (e, res) => {
+                try {
+                    let progress = document.querySelector('#' + res);
+                    progress.setAttribute("style", "");
+                } catch (error) {
+                    alert("Programer made an ooopsie!, YouTube ID:" + res + " can't be used for HTML ID attibute!");
+                }
+                M.toast({ html: 'Downloading...' });
+            });
+
+            ipcRenderer.on('download:finish', (e, res) => {
+                try {
+                    let progress = document.querySelector('#' + res);
+                    progress.setAttribute("style", "display: none;");
+                } catch (error) {
+                   
+                }
+                M.Toast.dismissAll();
+                M.toast({ html: 'Finished!' })
+            });
+
+
+            function addVideoToResults(vid) {
+                let result = nwe('div');
+
+                result.innerHTML =
+                    '<div class="row">' +
+                        '<div class="col s12">' +
+                            '<div class="card horizontal">'+
+                                '<div class="card-image">' +
+                                    '<img style="height: 100%; width: 100%;" src="' + vid.thumbnails.high.url + '" />'+
+                                '</div>'+
+                                '<div class="card-stacked">'+
+                                    '<div class="card-content">'+
+                                        '<div class="row" style="margin-bottom: 0;"><p><b>'+vid.title+'</b></p></div>'+
+                                        '<div class="row"><small>By '+vid.channelTitle+'</small></div>'+
+                                        '<div class="row"><p>'+vid.description+'</p></div>'+
+                                    '</div>'+
+                                    '<div class="card-action">'+
+                                        '<button vid="'+vid.id+'" vtit="'+vid.title+'" onclick="onClick()" class="waves-effect waves-teal btn-flat">Download</button><button class="waves-effect waves-teal btn-flat" vtit="'+ vid.title + '" onclick="onClickOpen()" >Open in explorer</button>'+
+                                        '<div id="'+vid.id+'" class="progress" style="display: none;">'+
+                                            '<div class="indeterminate"></div>'+
+                                        '</div>'+
+                                    '</div>'+
+                                '</div>'+
+                            '</div>'+
+                        '</div>'+
+                    '</div>'
+
+                return result;
+            };
+
+            function nwe(type) {
+                return doc.createElement(type);
+            }
+
+            function onClick(e) {
+                e = e || window.event;
+                e = e.target || e.srcElement;
+                if (e.nodeName === 'BUTTON') {
+                    let format = doc.querySelector('#format').value;
+                    let video = { id: e.getAttribute("vid"), title: e.getAttribute("vtit"), format: format };
+                    ipcRenderer.send('video:down', video);
+                }
+            }
+
+            function onClickOpen() {
+                ipcRenderer.send('video:open', 'downloads');
+            }
+        </script>
+</body>
+</html>
